@@ -46,10 +46,11 @@ gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
 
 ```{python}
 # Data cleaning for the two maps
-gtd_map = gtd_clean.groupby('country_txt').agg(
+gtd_count = gtd_clean.groupby('country_txt').agg(
     attack_count=('country_txt', 'size'),
     casualties=('nhurt', 'sum')
 ).reset_index()
+gtd_map = gtd_count.copy()
 
 # Read in the shapefile
 file_shape = (
@@ -67,7 +68,7 @@ gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'attack_count'] += 106
 gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'casualties'] += 91
 
 # Adjust country names in the shapefile to handle NAs manually
-name_dict = {'Bosnia & Herzegovina': 'Bosnia-Herzegovina',
+name_dict_map = {'Bosnia & Herzegovina': 'Bosnia-Herzegovina',
              'Brunei Darussalam': 'Brunei',
              'Timor-Leste': 'East Timor',
              'Iran (Islamic Republic of)': 'Iran',
@@ -88,7 +89,7 @@ name_dict = {'Bosnia & Herzegovina': 'Bosnia-Herzegovina',
              'West Bank': 'West Bank and Gaza Strip',
              }
 world_shapefile['name'] = world_shapefile['name'].map(
-    name_dict).fillna(world_shapefile['name'])
+    name_dict_map).fillna(world_shapefile['name'])
 
 gtd_map = pd.merge(world_shapefile, gtd_map,
                    left_on='name', right_on='country_txt', how='left').fillna(0)
@@ -134,4 +135,110 @@ ax.set_xticks([])
 ax.set_yticks([]) 
 plt.title('Global Attack Casualty Heatmap')
 plt.show()
+```
+
+```{python}
+file_democracy = 'p5v2018.csv'
+df_democracy = pd.read_csv(path+file_democracy)
+# Clean the dataset
+df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
+    'country', 'year', 'polity']]
+# Calculate the average democracy score for each country
+country_score = df_democracy.groupby(
+    'country')['polity'].mean().reset_index(name='avg_score')
+
+
+# Moderate the country names in country_score to do the matching
+# Erase NAs maually
+name_dict_demo = {
+    'Bosnia': 'Bosnia-Herzegovina',
+    'Congo Kinshasa': 'Democratic Republic of the Congo',
+    'Dominican Republic': 'Dominica',
+    'Timor Leste': 'East Timor',
+    'Myanmar (Burma)': 'Myanmar',
+    'Congo-Brazzaville': 'Republic of the Congo',
+    'Serbia and Montenegro': 'Serbia-Montenegro',
+    'Korea South': 'South Korea'
+}
+country_score['country'] = country_score['country'].map(
+    name_dict_demo).fillna(country_score['country'])
+gtd_score = pd.merge(gtd_count, country_score, how='inner',
+                     left_on='country_txt', right_on='country')
+# Add HK count to China count
+gtd_score.loc[gtd_score['country_txt'] == 'China', 'attack_count'] += 5
+```
+
+## Draw the plot fot democracy
+```{python}
+# Filter the dataset to include only rows where attack counts exceed 1000
+gtd_score = gtd_score.loc[gtd_score['attack_count'] > 1000]
+point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
+    alt.X('avg_score', title='Average Democracy Score (2000-2020)'),
+    alt.Y('attack_count', title='Number of Attacks')
+).properties(
+    width=500,
+    height=300,
+    title='Number of Terrorist Attacks (2000 - 2020) vs. Democracy Performance'
+)
+line = point.transform_regression(
+    'avg_score', 'attack_count', method='linear'
+).mark_line(color='red') 
+
+combined_chart = point + line
+
+final_chart = combined_chart.properties(
+    width=500,
+    height=300,
+    title='Number of Terrorist Attacks vs. Democracy Performance (2000 - 2020)'
+).configure_axis(
+    grid=True
+).configure_title(
+    fontSize=12,
+    anchor='start',
+    color='black'
+).configure_mark(
+    opacity=0.6
+)
+
+
+final_chart
+```
+
+## Terrorism Groups Analysis
+```{python}
+# Categorize countries into three regions
+SA = ['Afghanistan', 'Bangladesh', 'Bhutan', 'India', 'Pakistan', 
+      'Maldives', 'Nepal', 'Sri Lanka']
+
+gtd_clean['region'] = gtd_clean['country_txt'].apply(
+    lambda x: 'Iraq' if x == 'Iraq' else 
+              'South Asia' if x in SA else 
+              'Other Regions'
+)
+
+gtd_gnames = gtd_clean[['region', 'gname']]
+gtd_gnames = gtd_gnames.groupby(['region', 'gname']).size().reset_index(name='count')
+gtd_gnames['Percentage'] = gtd_gnames.groupby('region')['count'].transform(lambda x: x / x.sum())
+gtd_gnames.sort_values(by=['region', 'Percentage'], ascending=[True, False], inplace=True)
+gtd_gnames = gtd_gnames.groupby('region').head(10)
+
+regions = ['South Asia', 'Iraq', 'Other Regions']
+for region in regions:
+    data_filtered = gtd_gnames[gtd_gnames['region'] == region]
+    chart = alt.Chart(data_filtered).mark_bar().encode(
+        x=alt.X(
+            'gname:N',
+            sort='-y',
+            title='Group Names',
+            axis=alt.Axis(labelExpr="slice(datum.value, 0, 20)", labelAngle=-45)
+        ),
+        y=alt.Y('Percentage:Q', title='Proportion'),
+        color=alt.Color('gname:N', legend=None, scale=alt.Scale(domain=data_filtered['gname'].unique()))
+    ).properties(
+        title=f"Groups Responsible for Most Attacks in {region}",
+        width=700,
+        height=400
+    )
+    chart.display()
+
 ```
