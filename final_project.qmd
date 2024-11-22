@@ -27,6 +27,7 @@ import altair as alt
 alt.renderers.enable("png")
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 ```
 
 ```{python}
@@ -34,14 +35,6 @@ import matplotlib.pyplot as plt
 path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path+file_gtd)
-```
-
-```{python}
-gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
-                 'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
-# Focos on the 21st century
-gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
-gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
 ```
 
 ```{python}
@@ -204,6 +197,107 @@ final_chart = combined_chart.properties(
 final_chart
 ```
 
+## Draw the plot for economics
+
+```{python}
+# Import the GDP data
+path = "/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/"
+file_name = "GDP.csv"
+df_gdp = pd.read_csv(path + file_name)
+df_gdp = df_gdp[df_gdp["Series Name"] == "GDP (current US$)"]
+
+# Convert the GDP values to numeric type
+gdp_columns = [col for col in df_gdp.columns if "YR" in col]
+for col in gdp_columns:
+    df_gdp[col] = pd.to_numeric(df_gdp[col], errors="coerce")
+
+# Calculate the average GDP
+df_gdp["average_gdp"] = df_gdp[gdp_columns].mean(axis=1)
+
+# Calculate the amount of attack from GTD data
+gtd_count = gtd_clean.groupby("country_txt").agg(
+  attack_count = ("country_txt", "size")
+).reset_index()
+```
+
+```{python}
+# Match the names
+df_gdp["Country Name"] = df_gdp["Country Name"].replace({
+  "Bahamas, The": "Bahamas",
+  "Bosnia and Herzegovina": "Bosnia-Herzegovina",
+  "Czechia": "Czech Republic",
+  "Congo, Dem. Rep.": "Democratic Republic of the Congo",
+  "Timor-Leste": "East Timor",
+  "Egypt, Arab Rep.": "Egypt",
+  "Gambia, The": "Gambia",
+  "Hong Kong SAR, China": "Hong Kong",
+  "Iran, Islamic Rep.": "Iran",
+  "Cote d'Ivoire": "Ivory Coast",
+  "Kyrgyz Republic": "Kyrgyzstan",
+  "Lao PDR": "Laos",
+  "North Macedonia": "Macedonia",
+  "Congo, Rep.": "Republic of the Congo",
+  "Russian Federation": "Russia",
+  "Korea, Rep.": "South Korea",
+  "Eswatini": "Swaziland",
+  "Syrian Arab Republic": "Syria",
+  "Turkiye": "Turkey",
+  "Venezuela, RB": "Venezuela",
+  "Viet Nam": "Vietnam",
+  "West Bank and Gaza": "West Bank and Gaza Strip",
+  "Yemen, Rep.": "Yemen"
+  })
+
+# Clean countries that no longer exists
+gtd_count = gtd_count[gtd_count["country_txt"] != "International"]
+
+# For Yugoslavia
+serbia_montenegro_count = gtd_count.loc[gtd_count["country_txt"] == "Serbia-Montenegro", "attack_count"].values[0]
+yugoslavia_count = gtd_count.loc[gtd_count["country_txt"] == "Yugoslavia", "attack_count"].values[0]
+
+serbia_count = (serbia_montenegro_count / 2) + (yugoslavia_count / 2)
+montenegro_count = (serbia_montenegro_count / 2) + (yugoslavia_count / 2)
+gtd_count.loc[gtd_count["country_txt"] == "Serbia", "attack_count"] += serbia_count
+gtd_count.loc[gtd_count["country_txt"] == "Montenegro", "attack_count"] += montenegro_count
+
+gtd_count = gtd_count[gtd_count["country_txt"] != "Serbia-Montenegro"]
+gtd_count = gtd_count[gtd_count["country_txt"] != "Yugoslavia"]
+
+# For Taiwan
+taiwan_count = gtd_count.loc[gtd_count["country_txt"] == "Taiwan", "attack_count"].values[0]
+gtd_count.loc[gtd_count["country_txt"] == "China", "attack_count"] += taiwan_count
+gtd_count = gtd_count[gtd_count["country_txt"] != "Taiwan"]
+
+# Merge the dataframes
+gtd_gdp = gtd_count.merge(df_gdp[["Country Name", "average_gdp"]], left_on="country_txt", right_on="Country Name", how="left")
+```
+
+```{python}
+# Use log to scale the data
+gtd_gdp["log_average_gdp"] = np.log(gtd_gdp["average_gdp"])
+gtd_gdp["log_attack_count"] = np.log(gtd_gdp["attack_count"])
+
+# Make the plot
+scatter_plot = alt.Chart(gtd_gdp).mark_circle(size=60, opacity=0.6, color="steelblue").encode(
+    alt.X("log_average_gdp", title="Log Average GDP ($)", scale=alt.Scale(zero=False)),
+    alt.Y("log_attack_count", title="Log Number of Attacks", scale=alt.Scale(zero=True))
+).properties(
+    width=500,
+    height=300,
+    title=alt.TitleParams(
+        text="Average GDP vs Number of Terrorist Attacks (2000 - 2020)",
+        fontSize=12,
+        anchor="start",
+        color="black"
+    )
+)
+
+trend_line = scatter_plot.transform_regression("log_average_gdp", "log_attack_count").mark_line(color="red")
+
+scatter_plot + trend_line
+```
+
+
 ## Terrorism Groups Analysis
 ```{python}
 # Categorize countries into three regions
@@ -240,5 +334,86 @@ for region in regions:
         height=400
     )
     chart.display()
-
 ```
+
+
+## Exploration on the Motive (NLP)
+
+### For Taliban
+```{python}
+df_gtd_Taliban = gtd_clean[gtd_clean["gname"] == "Taliban"]
+motive_texts_Taliban = df_gtd_Taliban["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "taliban", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_Taliban)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of Taliban's Motive",
+    width=500,
+    height=300
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
+```
+
+### For ISIL
+```{python}
+df_gtd_ISIL = gtd_clean[gtd_clean["gname"] == "Islamic State of Iraq and the Levant (ISIL)"]
+motive_texts_ISIL = df_gtd_ISIL["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "isil", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed", "area"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_ISIL)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of ISIL's Motive",
+    width=500,
+    height=300
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
+```
+
