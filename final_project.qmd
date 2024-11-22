@@ -25,6 +25,8 @@ output:
 import pandas as pd
 import altair as alt
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+import matplotlib.pyplot as plt
 ```
 
 # Plot the relationship between the number of attacks and average GDP
@@ -51,8 +53,11 @@ file_name = "globalterrorismdb.csv"
 df_gtd = pd.read_csv(path + file_name)
 
 # Filter the dataset to focus on the 21st centry
-gtd_clean = df_gtd[["iyear", "country", "country_txt", "nkill", "nwound", "motive"]]
-gtd_clean = gtd_clean[gtd_clean["iyear"] > 1999]
+gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
+                 'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
+# Focos on the 21st century
+gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
+gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
 
 # Calculate the amount of attack
 gtd_count = gtd_clean.groupby("country_txt").agg(
@@ -135,4 +140,85 @@ scatter_plot = alt.Chart(gtd_gdp).mark_circle(size=60, opacity=0.6, color="steel
 trend_line = scatter_plot.transform_regression("log_average_gdp", "log_attack_count").mark_line(color="red")
 
 scatter_plot + trend_line
+```
+
+
+# Exploration on the Motive (NLP)
+
+## For Taliban
+```{python}
+df_gtd_Taliban = gtd_clean[gtd_clean["gname"] == "Taliban"]
+motive_texts_Taliban = df_gtd_Taliban["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "taliban", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_Taliban)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of Taliban's Motive",
+    width=500,
+    height=300
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
+```
+
+
+```{python}
+df_gtd_ISIL = gtd_clean[gtd_clean["gname"] == "Islamic State of Iraq and the Levant (ISIL)"]
+motive_texts_ISIL = df_gtd_ISIL["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "isil", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed", "area"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_ISIL)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of ISIL's Motive",
+    width=500,
+    height=300
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
 ```
