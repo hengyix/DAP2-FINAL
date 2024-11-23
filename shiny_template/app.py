@@ -8,12 +8,16 @@ alt.renderers.enable("png")
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+import plotly.graph_objects as go
+import plotly.express as px
+import io
+from sklearn.linear_model import LinearRegression
 
 # %%
 # Read in the GTD dataset
-path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
+path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
-df_gtd = pd.read_csv(path + file_gtd)
+df_gtd = pd.read_csv(path + file_gtd, low_memory=False)
 
 gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
                  'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
@@ -77,25 +81,64 @@ world_shapefile['name'] = world_shapefile['name'].map(name_dict_map).fillna(worl
 gtd_map = pd.merge(world_shapefile, gtd_map, left_on='name', right_on='country_txt', how='left').fillna(0)
 
 # %%
-# Define functions to plot maps
-def plot_map(variable):
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    gtd_map.plot(
-        column=variable, ax=ax, legend=True,
-        legend_kwds={
-            'label': f"{variable.replace('_', ' ').title()} by Country",
-            'orientation': "vertical",
-            'shrink': 0.5,
-            'aspect': 20,
-            'pad': 0.01,
-            'anchor': (0.2, 0.5)
-        },
-        cmap='Reds'
-    )
-    ax.set_facecolor('lightblue')
-    ax.set_xticks([])
-    ax.set_yticks([])
-    plt.title(f'Global {variable.replace("_", " ").title()} Heatmap', fontsize=12, fontweight='bold')
+# Function for map function is defined below in server
+
+# Define the function for democracy plot
+file_democracy = 'p5v2018.csv'
+df_democracy = pd.read_csv(path + file_democracy)
+# Clean the dataset
+df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
+    'country', 'year', 'polity']]
+# Calculate the average democracy score for each country
+country_score = df_democracy.groupby(
+    'country')['polity'].mean().reset_index(name='avg_score')
+
+
+# Moderate the country names in country_score to do the matching
+# Erase NAs maually
+name_dict_demo = {
+    'Bosnia': 'Bosnia-Herzegovina',
+    'Congo Kinshasa': 'Democratic Republic of the Congo',
+    'Dominican Republic': 'Dominica',
+    'Timor Leste': 'East Timor',
+    'Myanmar (Burma)': 'Myanmar',
+    'Congo-Brazzaville': 'Republic of the Congo',
+    'Serbia and Montenegro': 'Serbia-Montenegro',
+    'Korea South': 'South Korea'
+}
+country_score['country'] = country_score['country'].map(
+    name_dict_demo).fillna(country_score['country'])
+gtd_score = pd.merge(gtd_count, country_score, how='inner',
+                     left_on='country_txt', right_on='country')
+# Add HK count to China count
+gtd_score.loc[gtd_score['country_txt'] == 'China', 'attack_count'] += 5
+# Filter the dataset to include only rows where attack counts exceed 1000
+gtd_score = gtd_score.loc[gtd_score['attack_count'] > 1000]
+x = gtd_score['avg_score'].values.reshape(-1, 1)
+y = gtd_score['attack_count'].values
+
+# %%
+# Make the plot using matplotlib
+def plot_attacks_vs_democracy():
+    fig, ax = plt.subplots()
+    # Regression
+    model = LinearRegression()
+    model.fit(x, y)
+    y_pred = model.predict(x)
+
+    ax.scatter(gtd_score['avg_score'], gtd_score['attack_count'], 
+           color='steelblue', s=60, alpha=0.6)
+    ax.plot(gtd_score['avg_score'], y_pred, color='red')
+
+    ax.set_title('Democracy Performance vs. Number of Terrorist Attacks (over 1000)', 
+             fontsize=12, fontweight='bold')
+    ax.set_xlabel('Average Democracy Score (2000-2020)', fontsize=10)
+    ax.set_ylabel('Number of Attacks', fontsize=10)
+
+    for spine in ax.spines.values():
+        spine.set_alpha(0.6)
+    ax.legend(fontsize=10)
+    plt.tight_layout()
     return fig
 
 # %%
@@ -183,7 +226,7 @@ def plot_gdp_vs_attacks():
     
     ax.set_xlabel("Log Average GDP ($)", fontsize=10)
     ax.set_ylabel("Log Number of Attacks", fontsize=10)
-    ax.set_title("Average GDP vs Number of Terrorist Attacks (2000 - 2020)", fontsize=12, fontweight='bold')
+    ax.set_title("Average GDP vs Number of Terrorist Attacks", fontsize=12, fontweight='bold')
     return fig
 
 
@@ -191,7 +234,7 @@ def plot_gdp_vs_attacks():
 # The contents of the first 'page' is a navset with two 'panels'.
 page1 = ui.navset_card_underline(
     ui.nav_panel("Plot", [
-        ui.output_plot("dynamic_map"),
+        ui.output_ui("dynamic_map"),
         ui.input_select("variable", "Select Variable:", choices=["attack_count", "casualties"])
     ]),
     ui.nav_panel("Table", [
@@ -223,18 +266,39 @@ app_ui = ui.div(
         ui.nav_spacer(),  # Push the navbar items to the right
         ui.nav_panel("Page 1", page1),
         ui.nav_panel("Page 2", page2),
-        title="Shiny Navigation Components"
+        title="Global Terrorism Analysis (2000-2020)"
     ),
     style="padding: 20px; font-family: Arial, sans-serif; background-color: #f3f3f3; color: #333;"
 )
 
 # %%
 def server(input, output, session):
-    @render.plot
+    @output
+    @render.ui
     def dynamic_map():
         variable = input.variable()
-        fig = plot_map(variable)
-        return fig
+        print(f"Selected variable: {variable}")  # Debug
+        if variable not in gtd_map.columns:
+            return ui.div(f"Variable '{variable}' not found in the data.")
+        
+        fig = px.choropleth(
+            gtd_map,
+            geojson=gtd_map.set_geometry('geometry').__geo_interface__,
+            locations='name',
+            featureidkey='properties.name',
+            color=variable,
+            hover_name='name',
+            hover_data=[variable],
+            color_continuous_scale='Reds'
+        )
+        fig.update_geos(showcoastlines=False, visible=False, bgcolor='lightblue')
+        fig.update_layout(height=500, margin=dict(r=0, t=40, l=0, b=0))
+
+        # Generate HTML plot
+        buffer = io.StringIO()
+        fig.write_html(buffer)
+        return ui.HTML(buffer.getvalue())
+
 
     @render.data_frame
     def data():
@@ -246,9 +310,7 @@ def server(input, output, session):
     
     @render.plot
     def democracy_plot():
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, "Democracy Plot", fontsize=20, ha='center')
-        ax.axis('off')
+        fig = plot_attacks_vs_democracy()
         return fig
     
     @render.plot
@@ -260,4 +322,4 @@ def server(input, output, session):
 # %%
 app = App(app_ui, server)
 
-# %%
+
