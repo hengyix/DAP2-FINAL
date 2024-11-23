@@ -7,6 +7,8 @@ import altair as alt
 alt.renderers.enable("png")
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 import plotly.graph_objects as go
 import plotly.express as px
@@ -15,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 # %%
 # Read in the GTD dataset
-path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
+path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path + file_gtd, low_memory=False)
 
@@ -229,6 +231,73 @@ def plot_gdp_vs_attacks():
     ax.set_title("Average GDP vs Number of Terrorist Attacks", fontsize=12, fontweight='bold')
     return fig
 
+# %%
+# Categorize countries into three regions
+SA = ['Afghanistan', 'Bangladesh', 'Bhutan', 'India', 'Pakistan', 
+      'Maldives', 'Nepal', 'Sri Lanka']
+
+gtd_clean['region'] = gtd_clean['country_txt'].apply(
+    lambda x: 'Iraq' if x == 'Iraq' else 
+              'South Asia' if x in SA else 
+              'Other Regions'
+)
+
+gtd_gnames = gtd_clean[['region', 'gname']]
+gtd_gnames = gtd_gnames.groupby(['region', 'gname']).size().reset_index(name='count')
+gtd_gnames['Percentage'] = gtd_gnames.groupby('region')['count'].transform(lambda x: x / x.sum())
+gtd_gnames.sort_values(by=['region', 'Percentage'], ascending=[True, False], inplace=True)
+gtd_gnames = gtd_gnames.groupby('region').head(10)
+
+# Define a function to plot the dynamic chart using matplotlib
+def plot_group_names(region):
+    data_filtered = gtd_gnames[gtd_gnames['region'] == region]
+
+    seen_names = {}
+    def unique_truncate(name, max_length=20):
+        truncated = name if len(name) <= max_length else name[:17] + '...'
+        if truncated in seen_names:
+            seen_names[truncated] += 1
+            truncated = f"{truncated}({seen_names[truncated]})"
+        else:
+            seen_names[truncated] = 0
+        return truncated
+    
+    data_filtered['gname_short'] = data_filtered['gname'].apply(unique_truncate)
+
+    n_colors = len(data_filtered)
+    cmap = cm.get_cmap('tab20', n_colors)
+    colors = [mcolors.to_hex(cmap(i)) for i in range(n_colors)]
+
+    fig = go.Figure(data=[go.Bar(
+        x=data_filtered['gname_short'],
+        y=data_filtered['Percentage'],
+        marker=dict(color=colors),
+        hovertext=data_filtered['gname'],
+        hoverinfo="text+y",
+        showlegend=False
+        )
+    ])
+    fig.update_layout(
+        title={
+            'text': f'Groups Responsible for Most Attacks in {region}',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {
+                'size': 16,
+                'weight': 'bold'
+            }
+        },
+        xaxis_tickangle=-45,
+        title_font_size=12,
+        xaxis_title_font_size=10,
+        yaxis_title_font_size=10,
+        plot_bgcolor='#fdfaf4',
+        paper_bgcolor='white'
+    )
+    buffer = io.StringIO()
+    fig.write_html(buffer)
+    html_content = buffer.getvalue()
+    return ui.HTML(html_content)
 
 # %%
 # The contents of the first 'page' is a navset with two 'panels'.
@@ -261,11 +330,22 @@ page2 = ui.div(
     style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background-color: #f9f9f9;"
 )
 
+# Define the layout for the third page with dynamic plot
+page3 = ui.div(
+    ui.div(
+        ui.input_select("region", "Select Region:", choices=["South Asia", "Iraq", "Other Regions"]),
+        style="margin-bottom: 20px;"
+    ),
+    ui.output_ui("group_names_plot"),
+    style="padding: 20px; background-color: #f9f9f9;"
+)
+
 app_ui = ui.div(
     ui.page_navbar(
         ui.nav_spacer(),  # Push the navbar items to the right
         ui.nav_panel("Page 1", page1),
         ui.nav_panel("Page 2", page2),
+        ui.nav_panel("Page 3", page3),
         title="Global Terrorism Analysis (2000-2020)"
     ),
     style="padding: 20px; font-family: Arial, sans-serif; background-color: #f3f3f3; color: #333;"
@@ -317,6 +397,12 @@ def server(input, output, session):
     def economics_plot():
         fig = plot_gdp_vs_attacks()
         return fig
+    
+    @render.ui
+    def group_names_plot():
+        region = input.region()
+        fig_html = plot_group_names(region)
+        return fig_html
 
 
 # %%
