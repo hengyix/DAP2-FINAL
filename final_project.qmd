@@ -32,10 +32,27 @@ from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 
 ```{python}
 # Read in the GTD dataset
-path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
+path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path+file_gtd)
 ```
+
+```{python}
+gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
+                 'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
+# Focos on the 21st century
+gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
+gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
+```
+
+```{python}
+gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
+                 'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
+# Focos on the 21st century
+gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
+gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
+```
+
 
 ```{python}
 # Data cleaning for the two maps
