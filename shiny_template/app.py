@@ -139,7 +139,6 @@ def plot_attacks_vs_democracy():
 
     for spine in ax.spines.values():
         spine.set_alpha(0.6)
-    ax.legend(fontsize=10)
     plt.tight_layout()
     return fig
 
