@@ -17,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 # %%
 # Read in the GTD dataset
-path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
+path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path + file_gtd, low_memory=False)
 
@@ -300,6 +300,78 @@ def plot_group_names(region):
     return ui.HTML(html_content)
 
 # %%
+# NLP for Taliban motivations
+df_gtd_Taliban = gtd_clean[gtd_clean["gname"] == "Taliban"]
+motive_texts_Taliban = df_gtd_Taliban["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "taliban", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_Taliban)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+def Taliban_nlp():
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    words = tfidf_df['Word']
+    scores = tfidf_df['Score']
+
+    ax.bar(words, scores, color="steelblue")
+    ax.set_title("Top 10 Keywords of Taliban's Motive", fontsize=16, weight='bold')
+    ax.set_xlabel("Keywords", fontsize=14)
+    ax.set_ylabel("TF-IDF Score", fontsize=14)
+    plt.xticks(rotation=-40, ha='left', fontsize=12)
+    plt.yticks(fontsize=12)
+    return fig
+
+# %%
+# NLP for ISIL motivations
+df_gtd_ISIL = gtd_clean[gtd_clean["gname"] == "Islamic State of Iraq and the Levant (ISIL)"]
+motive_texts_ISIL = df_gtd_ISIL["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words_ISIL = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "isil", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed", "area"
+}))
+
+vectorizer_ISIL = TfidfVectorizer(stop_words=custom_stop_words_ISIL, min_df=3)
+tfidf_matrix_ISIL = vectorizer_ISIL.fit_transform(motive_texts_ISIL)
+
+feature_names_ISIL = vectorizer_ISIL.get_feature_names_out()
+tfidf_scores_ISIL = tfidf_matrix_ISIL.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df_ISIL = pd.DataFrame({"Word": feature_names_ISIL, "Score": tfidf_scores_ISIL})
+tfidf_df_ISIL = tfidf_df_ISIL.sort_values(by="Score", ascending=False).head(10)
+
+def ISIL_nlp():
+    fig, ax = plt.subplots(figsize=(10, 6))
+    words = tfidf_df_ISIL['Word']
+    scores = tfidf_df_ISIL['Score']
+
+    ax.bar(words, scores, color="steelblue")
+    ax.set_title("Top 10 Keywords of ISIL's Motive", fontsize=16, weight='bold', loc='center')
+    ax.set_xlabel("Keywords", fontsize=14)
+    ax.set_ylabel("TF-IDF Score", fontsize=14)
+    plt.xticks(rotation=-40, ha='left', fontsize=12)
+    plt.yticks(fontsize=12)
+    return fig
+
+
+# %%
 # The contents of the first 'page' is a navset with two 'panels'.
 page1 = ui.navset_card_underline(
     ui.nav_panel("Plot", [
@@ -337,6 +409,14 @@ page3 = ui.div(
         style="margin-bottom: 20px;"
     ),
     ui.output_ui("group_names_plot"),
+    ui.div(
+        ui.output_plot('Taliban_motivation'),
+        style="flex: 1; padding: 20px; border: 1px solid #d3d3d3; margin-right: 10px; background-color: #ffffff;"
+    ),
+    ui.div(
+        ui.output_plot('ISIL_motivation'),
+        style="flex: 1; padding: 20px; border: 1px solid #d3d3d3; margin-right: 10px; background-color: #ffffff;"
+    ),
     style="padding: 20px; background-color: #f9f9f9;"
 )
 
@@ -403,6 +483,17 @@ def server(input, output, session):
         region = input.region()
         fig_html = plot_group_names(region)
         return fig_html
+    
+    @render.plot
+    def Taliban_motivation():
+        fig = Taliban_nlp()
+        return fig
+    
+    @render.plot
+    def ISIL_motivation():
+        fig = ISIL_nlp()
+        return fig
+
 
 
 # %%
