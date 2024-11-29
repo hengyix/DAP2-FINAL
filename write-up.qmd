@@ -62,7 +62,7 @@ To analyze the geographical distribution of terrorist activities, we used two di
   
 For geographical visualization, we create interactive choropleth maps in Shiny app, which allow users to hover over countries to view specific figures and dynamically choose which metric they wished to view. The reason why a slider for time control is not added is that in each year, a very limited number of countries suffer from attacks, so a map does not make much sense. But in case readers are interested in year-based data, a table is attached in the Shiny app. Users are allowed to define both year and the sorting order.  
   
-_Coding approach (for dynamic maps) and weaknesses/difficulties_
+We used GeoPandas to create these two maps, selecting a red scale because red is more suitable for our theme: terrorism. A drawback of this map is that due to the presence of several very high values, the red shades corresponding to other areas on the scale are relatively light, making the visual differences less noticeable. However, since we aim to highlight hotspots, we chose to display the original figures directly instead of processed results like logarithms.
 
 ```{python}
 #| echo: false
@@ -173,7 +173,9 @@ It can be observed that Iraq and South Asia are the most affected regions in ter
 
 Analyzing these maps naturally leads to the question of what underlying factors contribute to the higher incidence and casualty rates of terrorist attacks in certain regions. In further research, we explore its relationship with several potentially relevant factors, including political systems (indicated by democracy levels) and economic development (indicated by GDPs).  
   
-_Democracy approach, coding, and weaknesses/difficulties_  
+For the democracy scores of different countries, our data comes from the [Polity V](https://www.systemicpeace.org/inscrdata.html), and we have taken the average for the years 2000-2018 (the latest data available is until 2018). After merging the data, we drew a plot to show the correlation between terrorist attacks and democracy scores. One issue we encountered is that over the 20-year period, a large number of countries experienced terrorist attacks, and the number of such incidents was relatively small. Including all countries would make the chart messy, so we chose to focus on countries with more than 1,000 events.
+
+From the plot, we can see that the spots are generally scattered, but after fitting, a downward slope is observable. This indicates a negative correlation between the number of terrorist attacks and democracy scores. In other words, in general, we expect fewer attacks as the democracy index increases.
 
 ```{python}
 #| echo: false
@@ -507,4 +509,4 @@ ISIL's motives are reflected in keywords like "Iraq," "Islamic," and "Levant," h
 This suggests that, for the Taliban, the focus should be on safeguarding government institutions and stabilizing electoral processes to counteract their efforts to disrupt governance. Regarding ISIL, there could be a need for policies that reduce inter-religious tensions and strengthen regional cooperation to contain their influence.  
 
 ## 4. Directions for Future Work
-_Discussion of directions for future work_
+Future research can dive into more details of terrorist attacks, from motives to attack patterns, and can also incorporate analyses with more countries and group backgrounds.
