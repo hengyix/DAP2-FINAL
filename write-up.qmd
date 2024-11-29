@@ -1,0 +1,510 @@
+---
+title: "Examining the Landscape of Global Terrorism"
+author: "Hengyi Xing, Section 04, hengyix; Sienna Wang, Section 01, SiennaWang12"
+date: "2024-11-03"
+format: 
+  pdf:
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \usepackage[top=0.5in, bottom=0.5in, left=0.75in, right=0.75in]{geometry}
+include-before-body:
+  text: |
+    \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
+      showspaces = false,
+      showtabs = false,
+      breaksymbolleft={},
+      breaklines
+    }
+execute:
+  echo: true
+  eval: true
+  warning: false
+---
+
+```{python}
+#| echo: false
+
+import pandas as pd
+import altair as alt
+alt.renderers.enable("png")
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+```
+
+For many years, global instability and political polarization have been increasing, with the threat of terrorism affecting countries worldwide. This research focuses on analyzing the countries most affected by terrorism, identifying the primary terrorist groups responsible, and understanding the underlying motivations behind their attacks. The research question aims to examine the characteristics of terrorist activities between 2000 and 2020, including their geographical distribution, the most active groups, and the primary motivations for their attacks. The main dataset is downloaded from [Global Terrorism Database (GTD)](https://www.start.umd.edu/gtd/).
+
+```{python}
+#| echo: false
+
+# Read in the GTD dataset
+path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
+file_gtd = 'globalterrorismdb.csv'
+df_gtd = pd.read_csv(path+file_gtd)
+```
+
+```{python}
+#| echo: false
+
+# Select the useful datasets
+gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
+                 'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
+# Focos on the 21st century
+gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
+gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
+```
+
+## 1. Geographical Distribution
+To analyze the geographical distribution of terrorist activities, we used two different metrics: attack count and casualties. The number of attacks was calculated by counting all recorded events in the terrorism database, which clearly identifies regions that were hotspots for terrorist activities. And the total number of casualties for each country assesses which areas suffered the most devastating impacts of terrorism, adding depth to the analysis beyond attack frequency.  
+  
+For geographical visualization, we create interactive choropleth maps in Shiny app, which allow users to hover over countries to view specific figures and dynamically choose which metric they wished to view. The reason why a slider for time control is not added is that in each year, a very limited number of countries suffer from attacks, so a map does not make much sense. But in case readers are interested in year-based data, a table is attached in the Shiny app. Users are allowed to define both year and the sorting order.  
+  
+_Coding approach (for dynamic maps) and weaknesses/difficulties_
+
+```{python}
+#| echo: false
+
+# Data cleaning for the two maps
+gtd_count = gtd_clean.groupby('country_txt').agg(
+    attack_count=('country_txt', 'size'),
+    casualties=('nhurt', 'sum')
+).reset_index()
+gtd_map = gtd_count.copy()
+
+# Read in the shapefile
+file_shape = (
+    'world-administrative-boundaries/world-administrative-boundaries.shp')
+world_shapefile = gpd.read_file(path+file_shape)
+world_shapefile = world_shapefile[['name', 'geometry']]
+
+# Match the countries with the shapefile
+# Match the format according to the shapefile
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'attack_count'] += 162
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'attack_count'] += 11
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'casualties'] += 279
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'casualties'] += 8
+gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'attack_count'] += 106
+gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'casualties'] += 91
+
+# Adjust country names in the shapefile to handle NAs manually
+name_dict_map = {'Bosnia & Herzegovina': 'Bosnia-Herzegovina',
+             'Brunei Darussalam': 'Brunei',
+             'Timor-Leste': 'East Timor',
+             'Iran (Islamic Republic of)': 'Iran',
+             "Côte d'Ivoire": 'Ivory Coast',
+             "Lao People's Democratic Republic": 'Laos',
+             'Libyan Arab Jamahiriya': 'Libya',
+             'The former Yugoslav Republic of Macedonia': 'Yugoslavia',
+             'Moldova, Republic of': 'Moldova',
+             'Congo': 'Republic of the Congo',
+             'Russian Federation': 'Russia',
+             'Slovakia': 'Slovak Republic',
+             'Republic of Korea': 'South Korea',
+             'Saint Lucia': 'St. Lucia',
+             'Syrian Arab Republic': 'Syria',
+             'United Republic of Tanzania': 'Tanzania',
+             'U.K. of Great Britain and Northern Ireland': 'United Kingdom',
+             'United States of America': 'United States',
+             'West Bank': 'West Bank and Gaza Strip',
+             }
+world_shapefile['name'] = world_shapefile['name'].map(
+    name_dict_map).fillna(world_shapefile['name'])
+
+gtd_map = pd.merge(world_shapefile, gtd_map,
+                   left_on='name', right_on='country_txt', how='left').fillna(0)
+```
+
+```{python}
+#| echo: false
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+gtd_map.plot(column='attack_count', ax=ax, legend=True,
+         legend_kwds={
+             'label': "Attack Count by Country",
+             'orientation': "vertical",
+             'shrink': 0.5,      
+             'aspect': 20,       
+             'pad': 0.01,       
+             'anchor': (0.2, 0.5)
+         },
+         cmap='Reds')  
+
+
+ax.set_facecolor('lightblue')
+ax.set_xticks([]) 
+ax.set_yticks([]) 
+plt.title('Global Attack Count Heatmap')
+plt.savefig('pictures/global_attack_count_heatmap.png', dpi=300, bbox_inches='tight')
+
+plt.close()
+```
+
+```{python}
+#| echo: false
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+gtd_map.plot(column='casualties', ax=ax, legend=True,
+         legend_kwds={
+             'label': "Casualty by Country",
+             'orientation': "vertical",
+             'shrink': 0.5,      
+             'aspect': 20,       
+             'pad': 0.01,       
+             'anchor': (0.2, 0.5)
+         },
+         cmap='Reds')  
+
+
+ax.set_facecolor('lightblue')
+ax.set_xticks([]) 
+ax.set_yticks([]) 
+plt.title('Global Attack Casualty Heatmap')
+plt.savefig('pictures/global_attack_casualties_heatmap.png', dpi=300, bbox_inches='tight')
+
+plt.close()
+```
+
+| ![Map of Attack Count](pictures/Shiny_map_attack_count.png) | ![Map of Casualties](pictures/Shiny_map_casualties.png) |
+|-------------------------------------|-------------------------------------|
+It can be observed that Iraq and South Asia are the most affected regions in terms of both attack count and casualties, indicating that these areas are severely impacted by terrorism. Additionally, while the United States does not have as many attacks, its casualty count is relatively high, which may reflect the significant impact of individual attacks (e.g., 911).  
+
+Analyzing these maps naturally leads to the question of what underlying factors contribute to the higher incidence and casualty rates of terrorist attacks in certain regions. In further research, we explore its relationship with several potentially relevant factors, including political systems (indicated by democracy levels) and economic development (indicated by GDPs).  
+  
+_Democracy approach, coding, and weaknesses/difficulties_  
+
+```{python}
+#| echo: false
+
+file_democracy = 'p5v2018.csv'
+df_democracy = pd.read_csv(path+file_democracy)
+# Clean the dataset
+df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
+    'country', 'year', 'polity']]
+# Calculate the average democracy score for each country
+country_score = df_democracy.groupby(
+    'country')['polity'].mean().reset_index(name='avg_score')
+
+
+# Moderate the country names in country_score to do the matching
+# Erase NAs maually
+name_dict_demo = {
+    'Bosnia': 'Bosnia-Herzegovina',
+    'Congo Kinshasa': 'Democratic Republic of the Congo',
+    'Dominican Republic': 'Dominica',
+    'Timor Leste': 'East Timor',
+    'Myanmar (Burma)': 'Myanmar',
+    'Congo-Brazzaville': 'Republic of the Congo',
+    'Serbia and Montenegro': 'Serbia-Montenegro',
+    'Korea South': 'South Korea'
+}
+country_score['country'] = country_score['country'].map(
+    name_dict_demo).fillna(country_score['country'])
+gtd_score = pd.merge(gtd_count, country_score, how='inner',
+                     left_on='country_txt', right_on='country')
+# Add HK count to China count
+gtd_score.loc[gtd_score['country_txt'] == 'China', 'attack_count'] += 5
+```
+
+```{python}
+#| echo: false
+
+# Filter the dataset to include only rows where attack counts exceed 1000
+gtd_score = gtd_score.loc[gtd_score['attack_count'] > 1000]
+point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
+    alt.X('avg_score', title='Average Democracy Score (2000-2020)'),
+    alt.Y('attack_count', title='Number of Attacks')
+).properties(
+    width=500,
+    height=300,
+    title='Number of Terrorist Attacks (2000 - 2020) vs. Democracy Performance'
+)
+line = point.transform_regression(
+    'avg_score', 'attack_count', method='linear'
+).mark_line(color='red') 
+
+combined_chart = point + line
+
+final_chart = combined_chart.properties(
+    width=500,
+    height=210,
+    title='Number of Terrorist Attacks vs. Democracy Performance (2000 - 2020)'
+).configure_axis(
+    grid=True
+).configure_title(
+    fontSize=12,
+    anchor='start',
+    color='black'
+).configure_mark(
+    opacity=0.6
+)
+
+final_chart.save("pictures/democracy.png", scale_factor=2)
+```
+
+For economic development, we obtained GDP data from the [World Bank database](https://databank.worldbank.org/indicator/NY.GDP.PCAP.CD/1ff4a498/Popular-Indicators#), focusing on GDP in current US dollars. For each country, we calculated the average GDP over the period from 2000 to 2020. We merged this with the terrorism data, ensuring compatibility by reconciling country names and addressing historical country changes (e.g., Yugoslavia). We then scaled the data logarithmically to better illustrate patterns across countries with large variations in GDP and attack counts.  
+  
+One limitation is the equal allocation of attack counts from Yugoslavia and Serbia-Montenegro to present-day Serbia and Montenegro, which overlooks potential regional differences in attack frequency. Additionally, using a 20-year average GDP assumes stability across time, oversimplifying significant economic fluctuations that could affect the observed relationships.
+
+```{python}
+#| echo: false
+
+# Import the GDP data
+path = "/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/"
+file_name = "GDP.csv"
+df_gdp = pd.read_csv(path + file_name)
+df_gdp = df_gdp[df_gdp["Series Name"] == "GDP (current US$)"]
+
+# Convert the GDP values to numeric type
+gdp_columns = [col for col in df_gdp.columns if "YR" in col]
+for col in gdp_columns:
+    df_gdp[col] = pd.to_numeric(df_gdp[col], errors="coerce")
+
+# Calculate the average GDP
+df_gdp["average_gdp"] = df_gdp[gdp_columns].mean(axis=1)
+
+# Calculate the amount of attack from GTD data
+gtd_count = gtd_clean.groupby("country_txt").agg(
+  attack_count = ("country_txt", "size")
+).reset_index()
+```
+
+```{python}
+#| echo: false
+
+# Match the names
+df_gdp["Country Name"] = df_gdp["Country Name"].replace({
+  "Bahamas, The": "Bahamas",
+  "Bosnia and Herzegovina": "Bosnia-Herzegovina",
+  "Czechia": "Czech Republic",
+  "Congo, Dem. Rep.": "Democratic Republic of the Congo",
+  "Timor-Leste": "East Timor",
+  "Egypt, Arab Rep.": "Egypt",
+  "Gambia, The": "Gambia",
+  "Hong Kong SAR, China": "Hong Kong",
+  "Iran, Islamic Rep.": "Iran",
+  "Cote d'Ivoire": "Ivory Coast",
+  "Kyrgyz Republic": "Kyrgyzstan",
+  "Lao PDR": "Laos",
+  "North Macedonia": "Macedonia",
+  "Congo, Rep.": "Republic of the Congo",
+  "Russian Federation": "Russia",
+  "Korea, Rep.": "South Korea",
+  "Eswatini": "Swaziland",
+  "Syrian Arab Republic": "Syria",
+  "Turkiye": "Turkey",
+  "Venezuela, RB": "Venezuela",
+  "Viet Nam": "Vietnam",
+  "West Bank and Gaza": "West Bank and Gaza Strip",
+  "Yemen, Rep.": "Yemen"
+  })
+
+# Clean countries that no longer exists
+gtd_count = gtd_count[gtd_count["country_txt"] != "International"]
+
+# For Yugoslavia
+serbia_montenegro_count = gtd_count.loc[gtd_count["country_txt"] == "Serbia-Montenegro", "attack_count"].values[0]
+yugoslavia_count = gtd_count.loc[gtd_count["country_txt"] == "Yugoslavia", "attack_count"].values[0]
+
+serbia_count = (serbia_montenegro_count / 2) + (yugoslavia_count / 2)
+montenegro_count = (serbia_montenegro_count / 2) + (yugoslavia_count / 2)
+gtd_count.loc[gtd_count["country_txt"] == "Serbia", "attack_count"] += serbia_count
+gtd_count.loc[gtd_count["country_txt"] == "Montenegro", "attack_count"] += montenegro_count
+
+gtd_count = gtd_count[gtd_count["country_txt"] != "Serbia-Montenegro"]
+gtd_count = gtd_count[gtd_count["country_txt"] != "Yugoslavia"]
+
+# For Taiwan
+taiwan_count = gtd_count.loc[gtd_count["country_txt"] == "Taiwan", "attack_count"].values[0]
+gtd_count.loc[gtd_count["country_txt"] == "China", "attack_count"] += taiwan_count
+gtd_count = gtd_count[gtd_count["country_txt"] != "Taiwan"]
+
+# Merge the dataframes
+gtd_gdp = gtd_count.merge(df_gdp[["Country Name", "average_gdp"]], left_on="country_txt", right_on="Country Name", how="left")
+```
+
+```{python}
+#| echo: false
+
+# Use log to scale the data
+gtd_gdp["log_average_gdp"] = np.log(gtd_gdp["average_gdp"])
+gtd_gdp["log_attack_count"] = np.log(gtd_gdp["attack_count"])
+
+# Make the plot
+scatter_plot = alt.Chart(gtd_gdp).mark_circle(size=60, opacity=0.6, color="steelblue").encode(
+    alt.X("log_average_gdp", title="Log Average GDP ($, 2000-2020)", scale=alt.Scale(zero=False)),
+    alt.Y("log_attack_count", title="Log Number of Attacks", scale=alt.Scale(zero=True))
+).properties(
+    width=500,
+    height=200,
+    title=alt.TitleParams(
+        text="Number of Terrorist Attacks vs Average GDP (2000 - 2020)",
+        fontSize=12,
+        anchor="start",
+        color="black"
+    )
+)
+
+trend_line = scatter_plot.transform_regression("log_average_gdp", "log_attack_count").mark_line(color="red")
+
+economy_chart = scatter_plot + trend_line
+economy_chart.save("pictures/economy.png", scale_factor=2)
+```
+| ![Democracy Chart](pictures/democracy.png) | ![Economy Chart](pictures/economy.png) |
+|-------------------------------------|-------------------------------------|
+The negative relationship between democracy and terrorist attacks implies that authoritarian countries may be more vulnerable to terrorism. This finding suggests that policymakers should focus on strengthening political stability and addressing grievances in authoritarian regions to reduce the likelihood of terrorism.  
+  
+The positive trend between GDP and terrorist attacks suggests that wealthier countries may be attractive targets for terrorism. This could imply that economically prosperous countries need to enhance their domestic security and counterterrorism strategies.  
+  
+However, these charts only show correlations, not causations. The observed relationships do not necessarily imply that lower democracy or higher GDP causes an increase in terrorist attacks. There are numerous confounding factors that could affect both GDP, democracy, and terrorism rates, such as historical conflicts and regional influences.
+
+## 2. Most Active Groups
+Based on the analysis of the previous map, we categorize terrorist activities by region and identify the groups most responsible for attacks in each region, focusing on Iraq, South Asia, and Other Regions. The goal is to visualize which groups are most active based on the number of attacks they are responsible for, enabling a better understanding of regional terrorism dynamics.  
+  
+We determine the activity level of each group by calculating the number of attacks attributed to them and the proportion of these attacks in each region. After ranking groups by activity, we visualize the top 10 groups per region using a dynamic bar chart in the Shiny app, where users can select different regions and view detailed information by hovering over the bars.
+
+One major challenge is that many group names are too long to display in the chart. To address this, we truncate the names while ensuring the full names are visible in tooltips for clarity. Furthermore, when truncated names result in identical labels, we append unique identifiers, such as "(1)" or "(2)", to distinguish them effectively. This helps maintain readability while preserving access to full group information.
+```{python}
+#| echo: false
+
+# Categorize countries into three regions
+SA = ['Afghanistan', 'Bangladesh', 'Bhutan', 'India', 'Pakistan', 
+      'Maldives', 'Nepal', 'Sri Lanka']
+
+gtd_clean['region'] = gtd_clean['country_txt'].apply(
+    lambda x: 'Iraq' if x == 'Iraq' else 
+              'South Asia' if x in SA else 
+              'Other Regions'
+)
+
+gtd_gnames = gtd_clean[['region', 'gname']]
+gtd_gnames = gtd_gnames.groupby(['region', 'gname']).size().reset_index(name='count')
+gtd_gnames['Percentage'] = gtd_gnames.groupby('region')['count'].transform(lambda x: x / x.sum())
+gtd_gnames.sort_values(by=['region', 'Percentage'], ascending=[True, False], inplace=True)
+gtd_gnames = gtd_gnames.groupby('region').head(10)
+
+regions = ['South Asia', 'Iraq', 'Other Regions']
+for region in regions:
+    data_filtered = gtd_gnames[gtd_gnames['region'] == region]
+    chart = alt.Chart(data_filtered).mark_bar().encode(
+        x=alt.X(
+            'gname:N',
+            sort='-y',
+            title='Group Names',
+            axis=alt.Axis(labelExpr="slice(datum.value, 0, 20)", labelAngle=-45)
+        ),
+        y=alt.Y('Percentage:Q', title='Proportion'),
+        color=alt.Color('gname:N', legend=None, scale=alt.Scale(domain=data_filtered['gname'].unique()))
+    ).properties(
+        title=f"Groups Responsible for Most Attacks in {region}",
+        width=500,
+        height=300
+    )
+    chart.save(f"pictures/attacks_{region.replace(' ', '_').lower()}.png", scale_factor=2)
+```
+| ![Attacks in Iraq](pictures/Shiny_Iraq.png) | ![Attacks in South Asia](pictures/Shiny_South_Asia.png) | ![Attacks in Other Regions](pictures/Shiny_Other_Regions.png) |
+|-----------------------------------------------|-----------------------------------------------|-----------------------------------------------|
+It can be observed that entities behind the vast majority of terrorist incidents remain unknown, and there does not exist an identified entity active across the world. This is consistent with the criminal nature of terrorism, causing trouble to combating it. But when zooming into Iraq and South Asia, Islamic State of Iraq and the Levant (ISIL) and Taliban stand out respectively.
+
+## 3. The Primary Motivations for Attacks (NLP)
+We wanted to explore the motivations behind the 2 active groups, Taliban and ISIL. We apply TF-IDF to identify key distinguishing words from the `motive` field, as it effectively captures the relative importance of words within each group compared to the entire corpus, which is crucial given the diverse yet repetitive nature of the descriptions in our dataset.  
+  
+We begin by filtering incidents linked to each group and pre-process the motive texts by removing stop words and irrelevant terms. TF-IDF is then applied to extract the most relevant keywords, which are visualized through bar charts.  
+  
+Note that although TF-IDF typically assigns low scores to or may even filter out the repetitive phrases in `motive`, these phrases can "dilute" the overall TF-IDF results, leading to genuinely distinctive words being overshadowed or omitted. Additionally, the presence of incomplete or missing data complicates efforts to capture a comprehensive representation of motives, potentially skewing the insights derived from the analysis.
+```{python}
+#| echo: false
+
+# For Taliban
+df_gtd_Taliban = gtd_clean[gtd_clean["gname"] == "Taliban"]
+motive_texts_Taliban = df_gtd_Taliban["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "taliban", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_Taliban)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+motive_taliban = alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of Taliban's Motive",
+    width=500,
+    height=150
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
+motive_taliban.save("pictures/motive_taliban.png", scale_factor=2)
+```
+
+```{python}
+#| echo: false
+
+# For ISIL
+df_gtd_ISIL = gtd_clean[gtd_clean["gname"] == "Islamic State of Iraq and the Levant (ISIL)"]
+motive_texts_ISIL = df_gtd_ISIL["motive"].dropna().tolist()
+
+# Add some meaningless words to the stop words list
+custom_stop_words = list(ENGLISH_STOP_WORDS.union({
+    "motive", "specific", "attack", "sources", "stated", 
+    "claimed", "responsibility", "noted", "carried","unknown", "isil", "incident", "information", "targeted", "victims", "accused", "victim", "posited", "suspected", "group", "believed", "area"
+}))
+
+vectorizer = TfidfVectorizer(stop_words=custom_stop_words, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(motive_texts_ISIL)
+
+# Get the key words and corresponding weights
+feature_names = vectorizer.get_feature_names_out()
+tfidf_scores = tfidf_matrix.sum(axis=0).A1
+
+# Transfer to dataframe
+tfidf_df = pd.DataFrame({"Word": feature_names, "Score": tfidf_scores})
+tfidf_df = tfidf_df.sort_values(by="Score", ascending=False).head(10)
+
+# Make the plot
+motive_ISIL = alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
+    alt.X("Word", sort="-y", title="Keywords", axis=alt.Axis(labelAngle=-40)),
+    alt.Y("Score", title="TF-IDF Score")
+).properties(
+    title="Top 10 Keywords of ISIL's Motive",
+    width=500,
+    height=150
+).configure_title(
+    fontSize=16,
+    anchor="middle"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
+)
+motive_ISIL.save("pictures/motive_ISIL.png", scale_factor=2)
+```
+
+| ![Taliban Chart](pictures/motive_taliban.png) | ![ISIL Chart](pictures/motive_ISIL.png) |
+|-------------------------------------|-------------------------------------|  
+In analyzing the motives of the Taliban, keywords such as "government," "Afghan," and "elections" frequently appear, suggesting that their activities are largely targeted at undermining the Afghan government and disrupting electoral processes. This aligns with their broader goal of weakening the political system and destabilizing governance structures.  
+  
+ISIL's motives are reflected in keywords like "Iraq," "Islamic," and "Levant," highlighting their geographical concentration of activities and aspirations to establish an Islamic governance structure in the region. The mention of terms like "Sunni" indicates that ISIL exploits sectarian divisions to extend its influence and consolidate control. This supports their overarching ambition to create and maintain dominance in the Middle Eastern territories.  
+  
+This suggests that, for the Taliban, the focus should be on safeguarding government institutions and stabilizing electoral processes to counteract their efforts to disrupt governance. Regarding ISIL, there could be a need for policies that reduce inter-religious tensions and strengthen regional cooperation to contain their influence.  
+
+## 4. Directions for Future Work
+_Discussion of directions for future work_
