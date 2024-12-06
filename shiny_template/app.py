@@ -17,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 # %%
 # Read in the GTD dataset
-path = '/Users/hengyix/Documents/GitHub/DAP2-FINAL/data/'
+path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path + file_gtd, low_memory=False)
 
@@ -33,14 +33,27 @@ gtd_count = gtd_clean.groupby('country_txt').agg(
     casualties=('nhurt', 'sum')
 ).reset_index()
 gtd_map = gtd_count.copy()
+gtd_map = gtd_map.rename(columns={
+    'attack_count': 'Attack Count',
+    'casualties': 'Casualties'
+})
 
 # Data cleaning for the table
 gtd_table = df_gtd.copy()
+gtd_table = gtd_table[gtd_table['iyear'] > 1999]
 gtd_table['nhurt'] = gtd_table['nkill'] + gtd_table['nwound']
 gtd_table = gtd_table.groupby(['iyear', 'country_txt']).agg(
     attack_count=('country_txt', 'size'),
     casualties=('nhurt', 'sum')
 ).reset_index()
+
+gtd_table = gtd_table.rename(columns={
+    'iyear': 'Year',
+    'country_txt': 'Country',
+    'attack_count': 'Attack Count',
+    'casualties': 'Casualties'
+})
+
 
 # %%
 # Read in the shapefile
@@ -49,12 +62,12 @@ world_shapefile = gpd.read_file(path + file_shape)
 world_shapefile = world_shapefile[['name', 'geometry']]
 
 # Match the countries with the shapefile
-gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'attack_count'] += 162
-gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'attack_count'] += 11
-gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'casualties'] += 279
-gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'casualties'] += 8
-gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'attack_count'] += 106
-gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'casualties'] += 91
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'Attack Count'] += 162
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'Attack Count'] += 11
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'Casualties'] += 279
+gtd_map.loc[gtd_map['country_txt'] == 'Serbia', 'Casualties'] += 8
+gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'Attack Count'] += 106
+gtd_map.loc[gtd_map['country_txt'] == 'Yugoslavia', 'Casualties'] += 91
 
 # Adjust country names in the shapefile to handle NAs manually
 name_dict_map = {
@@ -272,7 +285,7 @@ def plot_group_names(region):
         y=data_filtered['Percentage'],
         marker=dict(color=colors),
         hovertext=data_filtered['gname'],
-        hoverinfo="text+y",
+        hoverinfo='text+y',
         showlegend=False
         )
     ])
@@ -282,16 +295,24 @@ def plot_group_names(region):
             'x': 0.5,
             'xanchor': 'center',
             'font': {
-                'size': 16,
+                'size': 18,
                 'weight': 'bold'
             }
         },
-        xaxis_tickangle=-45,
-        title_font_size=12,
-        xaxis_title_font_size=10,
-        yaxis_title_font_size=10,
+        xaxis=dict(
+            title='Group Names',
+            title_font=dict(size=16),
+            tickfont=dict(size=14)
+        ),
+        yaxis=dict(
+            title='Percentage of Attacks',
+            title_font=dict(size=16),
+            tickfont=dict(size=14)
+        ),
+        xaxis_tickangle=-40,
         plot_bgcolor='#fdfaf4',
-        paper_bgcolor='white'
+        paper_bgcolor='white',
+        height=600
     )
     buffer = io.StringIO()
     fig.write_html(buffer)
@@ -327,12 +348,20 @@ def Taliban_nlp():
     words = tfidf_df['Word']
     scores = tfidf_df['Score']
 
+    ax.set_facecolor("#fdfaf4")
+
     ax.bar(words, scores, color="steelblue")
-    ax.set_title("Top 10 Keywords of Taliban's Motive", fontsize=16, weight='bold')
-    ax.set_xlabel("Keywords", fontsize=14)
-    ax.set_ylabel("TF-IDF Score", fontsize=14)
-    plt.xticks(rotation=-40, ha='left', fontsize=12)
-    plt.yticks(fontsize=12)
+    ax.set_title("Top 10 Keywords of Taliban's Motive", fontsize=12, weight='bold')
+    ax.set_xlabel("Keywords", fontsize=11)
+    ax.set_ylabel("TF-IDF Score", fontsize=11)
+    plt.xticks(rotation=40, ha='right', fontsize=10)
+    plt.yticks(fontsize=10)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
     return fig
 
 # %%
@@ -361,27 +390,35 @@ def ISIL_nlp():
     words = tfidf_df_ISIL['Word']
     scores = tfidf_df_ISIL['Score']
 
+    ax.set_facecolor("#fdfaf4")
+
     ax.bar(words, scores, color="steelblue")
-    ax.set_title("Top 10 Keywords of ISIL's Motive", fontsize=16, weight='bold', loc='center')
-    ax.set_xlabel("Keywords", fontsize=14)
-    ax.set_ylabel("TF-IDF Score", fontsize=14)
-    plt.xticks(rotation=-40, ha='left', fontsize=12)
-    plt.yticks(fontsize=12)
+    ax.set_title("Top 10 Keywords of ISIL's Motive", fontsize=12, weight='bold', loc='center')
+    ax.set_xlabel("Keywords", fontsize=11)
+    ax.set_ylabel("TF-IDF Score", fontsize=11)
+    plt.xticks(rotation=40, ha='right', fontsize=10)
+    plt.yticks(fontsize=10)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
     return fig
 
 
 # %%
-# The contents of the first 'page' is a navset with two 'panels'.
+# The first page is a navset with two panels.
 page1 = ui.navset_card_underline(
     ui.nav_panel("Plot", [
         ui.output_ui("dynamic_map"),
-        ui.input_select("variable", "Select Variable:", choices=["attack_count", "casualties"])
+        ui.input_select("variable", "Select Variable:", choices=["Attack Count", "Casualties"])
     ]),
     ui.nav_panel("Table", [
         ui.output_data_frame("data"),
         ui.div(
-            ui.input_select("year", "Choose a Year:", choices=sorted(gtd_table['iyear'].unique().astype(str))),
-            ui.input_select("sort_by", "Sort by:", choices=["attack_count", "casualties"]),
+            ui.input_select("year", "Choose a Year:", choices=sorted(gtd_table['Year'].unique().astype(str))),
+            ui.input_select("sort_by", "Sort by:", choices=["Attack Count", "Casualties"]),
             style="display: flex; gap: 20px; margin-top: 15px;"
         )
     ]),
@@ -422,9 +459,9 @@ page3 = ui.div(
 app_ui = ui.div(
     ui.page_navbar(
         ui.nav_spacer(),  # Push the navbar items to the right
-        ui.nav_panel("Page 1", page1),
-        ui.nav_panel("Page 2", page2),
-        ui.nav_panel("Page 3", page3),
+        ui.nav_panel("Global Overview", page1),
+        ui.nav_panel("Attack Correlations", page2),
+        ui.nav_panel("Regional Group Analysis", page3),
         title="Global Terrorism Analysis (2000-2020)"
     ),
     style="padding: 20px; font-family: Arial, sans-serif; background-color: #f3f3f3; color: #333;"
@@ -463,7 +500,7 @@ def server(input, output, session):
     def data():
         year = int(input.year())
         sort_by = input.sort_by()
-        filtered_data = gtd_table[gtd_table['iyear'] == year][["country_txt", "iyear", "attack_count", "casualties"]]
+        filtered_data = gtd_table[gtd_table["Year"] == year][["Country", "Year", "Attack Count", "Casualties"]]
         sorted_data = filtered_data.sort_values(by=sort_by, ascending=False)
         return sorted_data
     
