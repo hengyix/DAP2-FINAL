@@ -3,30 +3,35 @@ title: "Terrorism: Patterns, Actors, and Underlying Factors"
 author: "Hengyi Xing, Section 04, hengyix; Sienna Wang, Section 01, SiennaWang12"
 date: "2024-12-05"
 format: 
-  pdf:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    self-contained: true
     include-in-header: 
        text: |
-         \usepackage{fvextra}
-         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
-         \usepackage[top=0.5in, bottom=0.5in, left=0.75in, right=0.75in]{geometry}
-         \usepackage{ulem} % 添加这个包来支持下划线
-include-before-body:
-  text: |
-    \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
-      showspaces = false,
-      showtabs = false,
-      breaksymbolleft={},
-      breaklines
-    }
+         <style>
+           .verbatim {
+             white-space: pre-wrap;
+             background-color: #f7f7f7;
+             padding: 10px;
+             border-radius: 5px;
+           }
+           u {
+             text-decoration: underline;
+           }
+           body {
+             font-family: Arial, sans-serif;
+             line-height: 1.6;
+           }
+         </style>
 execute:
-  echo: true
-  eval: false
+  echo: false
+  eval: true
   warning: false
 ---
 
 ```{python}
-#| echo: false
-
 import pandas as pd
 import altair as alt
 alt.renderers.enable("png")
@@ -34,22 +39,22 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+
+# Please downlowad 'globalterrorismdb.csv' from 
+# https://drive.google.com/file/d/1L_0mg8PEYIpWt4vC2UssMU8i8u1Vhnlu/view?usp=sharing
+# to the 'data' folder
 ```
 
 Global instability and political polarization have been increasing, with terrorism affecting the globe. What factors contribute to the higher frequency and intensity of terrorist attacks in certain regions? This research analyzes the countries most affected by terrorism between 2000 and 2020, identifies the primary groups responsible, and explores their motives. The main dataset is from [Global Terrorism Database (GTD)](https://www.start.umd.edu/gtd/).
 
 ```{python}
-#| echo: false
-
 # Read in the GTD dataset
-path = '/Users/hengyix/Documents/Github/DAP2-FINAL/data/'
+path = 'data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path+file_gtd)
 ```
 
 ```{python}
-#| echo: false
-
 # Select the useful datasets
 gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
                  'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
@@ -66,8 +71,6 @@ We used GeoPandas to create interactive choropleth maps in a Shiny app, allowing
 A drawback of the map is that due to several very high values, other areas appear lighter, making visual differences less noticeable. However, to highlight hotspots, we still chose to display original figures instead of processed results like logarithms.
 
 ```{python}
-#| echo: false
-
 # Data cleaning for the two maps
 gtd_count = gtd_clean.groupby('country_txt').agg(
     attack_count=('country_txt', 'size'),
@@ -119,7 +122,6 @@ gtd_map = pd.merge(world_shapefile, gtd_map,
 ```
 
 ```{python}
-#| echo: false
 # First map countering attack frequency
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 gtd_map.plot(column='attack_count', ax=ax, legend=True,
@@ -144,7 +146,6 @@ plt.close()
 ```
 
 ```{python}
-#| echo: false
 # Second map countering attack casualties
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 gtd_map.plot(column='casualties', ax=ax, legend=True,
@@ -170,15 +171,13 @@ plt.close()
 
 | ![Map of Attack Count](pictures/Shiny_map_attack_count.png) | ![Map of Casualties](pictures/Shiny_map_casualties.png) |
 |-------------------------------------|-------------------------------------|
-\uline{Iraq and South Asia are the most affected regions in terms of both attack count and casualties, indicating severe impacts from terrorism.} Additionally, the United States, despite few attacks, shows a high casualty count due to significant events like 9/11.
+<u>Iraq and South Asia are the most affected regions in terms of both attack count and casualties, indicating severe impacts from terrorism.</u> Additionally, the United States, despite few attacks, shows a high casualty count due to significant events like 9/11.
 
 These maps raise questions about factors contributing to higher attack counts in certain regions. Further research explores links to political systems (democracy levels) and economic development (GDP).
   
 We obtained democracy level data from the [Polity V](https://www.systemicpeace.org/inscrdata.html), averaging scores from 2000-2018 (the latest data available is from 2018). After merging the data, we plotted the correlation between terrorist attacks and democracy scores. One issue we encountered is that over the 20-year period, a large number of countries experienced terrorist attacks, and the number of such incidents was relatively small. Thus, we focused on countries with over 1,000 events to avoid a cluttered chart.
 
 ```{python}
-#| echo: false
-
 file_democracy = 'p5v2018.csv'
 df_democracy = pd.read_csv(path+file_democracy)
 # Clean the dataset
@@ -213,8 +212,6 @@ gtd_democracy = gtd_democracy[['country', 'attack_count', 'avg_score']]
 ```
 
 ```{python}
-#| echo: false
-
 # Filter the dataset to include only rows where attack counts exceed 1000
 gtd_score = gtd_democracy.loc[gtd_democracy['attack_count'] > 1000]
 # Scatter Plot
@@ -254,10 +251,7 @@ final_chart.save("pictures/democracy.png", scale_factor=2)
 For economic development, we used GDP data from the [World Bank database](https://databank.worldbank.org/indicator/NY.GDP.PCAP.CD/1ff4a498/Popular-Indicators#). We averaged GDP from 2000 to 2020 and merged it with terrorism data, ensuring compatibility by reconciling country names and addressing historical changes (e.g., Yugoslavia). The data was scaled logarithmically to illustrate patterns across countries with large GDP and attack count variations. One limitation is the equal allocation of attack counts from Yugoslavia and Serbia-Montenegro to present-day Serbia and Montenegro, potentially overlooking regional differences. Additionally, using a 20-year average GDP assumes stability over time, oversimplifying economic fluctuations that could affect the observed relationships.
 
 ```{python}
-#| echo: false
-
 # Import the GDP data
-path = '/Users/hengyix/Documents/Github/DAP2-FINAL/data/'
 file_name = "GDP.csv"
 df_gdp = pd.read_csv(path + file_name)
 df_gdp = df_gdp[df_gdp["Series Name"] == "GDP (current US$)"]
@@ -277,8 +271,6 @@ gtd_count = gtd_clean.groupby("country_txt").agg(
 ```
 
 ```{python}
-#| echo: false
-
 # Match the names
 df_gdp["Country Name"] = df_gdp["Country Name"].replace({
   "Bahamas, The": "Bahamas",
@@ -331,8 +323,6 @@ gtd_gdp = gtd_count.merge(df_gdp[["Country Name", "average_gdp"]], left_on="coun
 ```
 
 ```{python}
-#| echo: false
-
 # Use log to scale the data
 gtd_gdp["log_average_gdp"] = np.log(gtd_gdp["average_gdp"])
 gtd_gdp["log_attack_count"] = np.log(gtd_gdp["attack_count"])
@@ -360,7 +350,7 @@ economy_chart.save("pictures/economy.png", scale_factor=2)
 ```
 | ![Democracy Chart](pictures/democracy.png) | ![Economy Chart](pictures/economy.png) |
 |-------------------------------------|-------------------------------------|
-The negative relationship between democracy and terrorist attacks implies that authoritarian countries may be more vulnerable to terrorism. \uline{Policymakers should focus on strengthening political stability and addressing grievances in authoritarian regions to reduce the likelihood of terrorism.} The positive trend between GDP and terrorist attacks suggests that wealthier countries may be attractive targets for terrorism. \uline{This could imply that economically prosperous countries need to enhance their domestic security and counterterrorism strategies.}
+The negative relationship between democracy and terrorist attacks implies that authoritarian countries may be more vulnerable to terrorism. <u>Policymakers should focus on strengthening political stability and addressing grievances in authoritarian regions to reduce the likelihood of terrorism.</u> The positive trend between GDP and terrorist attacks suggests that wealthier countries may be attractive targets for terrorism. <u>This could imply that economically prosperous countries need to enhance their domestic security and counterterrorism strategies.</u>
   
 However, these charts show correlations, not causations. The observed relationships do not imply that lower democracy or higher GDP causes more terrorist attacks. Numerous confounding factors, such as historical conflicts and regional influences, could affect GDP, democracy, and terrorism rates.
 
@@ -372,8 +362,6 @@ We calculated the number of attacks attributed to different groups and their pro
 One challenge was that many group names are too long to display in the chart. To address this, we truncated and rotated labels while ensuring the full names are visible in tooltips for clarity. For truncated names resulting in identical labels, we appended unique identifiers, such as "(1)" or "(2)", to distinguish them effectively. This approach maintains readability while preserving access to full group information.
 
 ```{python}
-#| echo: false
-
 # Categorize countries into three regions
 SA = ['Afghanistan', 'Bangladesh', 'Bhutan', 'India', 'Pakistan', 
       'Maldives', 'Nepal', 'Sri Lanka']
@@ -412,7 +400,7 @@ for region in regions:
 ```
 | ![Attacks in Iraq](pictures/Shiny_Iraq.png) | ![Attacks in South Asia](pictures/Shiny_South_Asia.png) | ![Attacks in Other Regions](pictures/Shiny_Other_Regions.png) |
 |-----------------------------------------------|-----------------------------------------------|-----------------------------------------------|
-\uline{Most terrorist incidents are attributed to unknown entities, and no single identified group is active globally. This aligns with the secretive nature of terrorism, complicating efforts to combat it. However, when focusing on Iraq and South Asia, ISIL and the Taliban stand out respectively.}
+<u>Most terrorist incidents are attributed to unknown entities, and no single identified group is active globally. This aligns with the secretive nature of terrorism, complicating efforts to combat it. However, when focusing on Iraq and South Asia, ISIL and the Taliban stand out respectively.</u>
 
 ## 3. The Primary Motivations for Attacks (NLP)
 
@@ -423,8 +411,6 @@ We began by filtering incidents linked to each group and pre-process the motive 
 However, TF-IDF may assign low scores to repetitive phrases, diluting the overall results and causing genuinely distinctive words to be overshadowed or omitted. Additionally, incomplete or missing data complicates efforts to capture a comprehensive representation of motives, potentially skewing the insights.
 
 ```{python}
-#| echo: false
-
 # For Taliban
 df_gtd_Taliban = gtd_clean[gtd_clean["gname"] == "Taliban"]
 motive_texts_Taliban = df_gtd_Taliban["motive"].dropna().tolist()
@@ -468,8 +454,6 @@ motive_taliban.save("pictures/motive_taliban.png", scale_factor=2)
 ```
 
 ```{python}
-#| echo: false
-
 # For ISIL
 df_gtd_ISIL = gtd_clean[gtd_clean["gname"] == "Islamic State of Iraq and the Levant (ISIL)"]
 motive_texts_ISIL = df_gtd_ISIL["motive"].dropna().tolist()
@@ -516,7 +500,7 @@ motive_ISIL.save("pictures/motive_ISIL.png", scale_factor=2)
 |-------------------------------------|-------------------------------------|  
 In analyzing the motives of the Taliban, keywords like "government," "Afghan," and "elections" suggest their focus on undermining the Afghan government and disrupting elections, aligning with their goal of weakening political stability. ISIL's motives are reflected in keywords like "Iraq," "Islamic," and "Levant," highlighting their regional focus and aspirations for an Islamic governance structure. Terms like "Sunni" indicate their use of sectarian divisions to extend influence and consolidate control.
   
-\uline{This suggests that, for the Taliban, the focus should be on safeguarding government institutions and stabilizing electoral processes to counteract their efforts to disrupt governance. Regarding ISIL, there could be a need for policies that reduce inter-religious tensions and strengthen regional cooperation to contain their influence.}
+<u>This suggests that, for the Taliban, the focus should be on safeguarding government institutions and stabilizing electoral processes to counteract their efforts to disrupt governance. Regarding ISIL, there could be a need for policies that reduce inter-religious tensions and strengthen regional cooperation to contain their influence.</u>
 
 ## 4. Directions for Future Work
 Future research could delve into nuanced relationships involving regional conflicts and motives, aiming to understand how historical, cultural, and socio-political factors interact to drive terrorism in specific areas. Also,  incorporating dynamic, year-on-year changes in GDP, democracy scores, and terror attack frequencies would allow for a more comprehensive understanding of how economic and political fluctuations influence terrorism over time. This approach could reveal patterns of vulnerability linked to economic instability or shifts in governance quality, providing a clearer picture of causality rather than simple correlation.
