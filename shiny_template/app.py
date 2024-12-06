@@ -15,11 +15,14 @@ import plotly.express as px
 import io
 from sklearn.linear_model import LinearRegression
 
+# Please downlowad 'globalterrorismdb.csv' from 
+# https://drive.google.com/file/d/1L_0mg8PEYIpWt4vC2UssMU8i8u1Vhnlu/view?usp=sharing
+# to the 'shiny_app' folder
+
 # %%
 # Read in the GTD dataset
-path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
-df_gtd = pd.read_csv(path + file_gtd, low_memory=False)
+df_gtd = pd.read_csv(file_gtd, low_memory=False)
 
 gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
                  'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
@@ -58,7 +61,7 @@ gtd_table = gtd_table.rename(columns={
 # %%
 # Read in the shapefile
 file_shape = 'world-administrative-boundaries/world-administrative-boundaries.shp'
-world_shapefile = gpd.read_file(path + file_shape)
+world_shapefile = gpd.read_file(file_shape)
 world_shapefile = world_shapefile[['name', 'geometry']]
 
 # Match the countries with the shapefile
@@ -100,7 +103,7 @@ gtd_map = pd.merge(world_shapefile, gtd_map, left_on='name', right_on='country_t
 
 # Define the function for democracy plot
 file_democracy = 'p5v2018.csv'
-df_democracy = pd.read_csv(path + file_democracy)
+df_democracy = pd.read_csv(file_democracy)
 # Clean the dataset
 df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
     'country', 'year', 'polity']]
@@ -157,8 +160,8 @@ def plot_attacks_vs_democracy():
 
 # %%
 # Import the GDP data
-file_name = "GDP.csv"
-df_gdp = pd.read_csv(path + file_name)
+file_GDP = "GDP.csv"
+df_gdp = pd.read_csv(file_GDP)
 df_gdp = df_gdp[df_gdp["Series Name"] == "GDP (current US$)"]
 
 # Convert the GDP values to numeric type
