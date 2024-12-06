@@ -17,7 +17,7 @@ from sklearn.linear_model import LinearRegression
 
 # Please downlowad 'globalterrorismdb.csv' from 
 # https://drive.google.com/file/d/1L_0mg8PEYIpWt4vC2UssMU8i8u1Vhnlu/view?usp=sharing
-# to the 'shiny_app' folder
+# to the 'shiny-app' folder
 
 # %%
 # Read in the GTD dataset
@@ -26,7 +26,7 @@ df_gtd = pd.read_csv(file_gtd, low_memory=False)
 
 gtd_clean = df_gtd[['iyear', 'country', 'country_txt', 'gname',
                  'attacktype1', 'attacktype1_txt', 'nkill', 'nwound', 'motive']]
-# Focos on the 21st century
+# Focus on the 21st century
 gtd_clean = gtd_clean[gtd_clean['iyear'] > 1999]
 gtd_clean['nhurt'] = gtd_clean['nkill'] + gtd_clean['nwound']
 
@@ -107,6 +107,7 @@ df_democracy = pd.read_csv(file_democracy)
 # Clean the dataset
 df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
     'country', 'year', 'polity']]
+df_democracy = df_democracy.loc[df_democracy['polity'] > -66, ['country', 'year', 'polity']]
 # Calculate the average democracy score for each country
 country_score = df_democracy.groupby(
     'country')['polity'].mean().reset_index(name='avg_score')
