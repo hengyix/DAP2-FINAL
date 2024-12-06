@@ -184,6 +184,8 @@ df_democracy = pd.read_csv(path+file_democracy)
 # Clean the dataset
 df_democracy = df_democracy.loc[df_democracy['year'] > 1999, [
     'country', 'year', 'polity']]
+df_democracy = df_democracy.loc[df_democracy['polity'] > -66, [
+    'country', 'year', 'polity']] # -66, -77, -88, indicate not applicable
 # Calculate the average democracy score for each country
 country_score = df_democracy.groupby(
     'country')['polity'].mean().reset_index(name='avg_score')
@@ -203,17 +205,18 @@ name_dict_demo = {
 }
 country_score['country'] = country_score['country'].map(
     name_dict_demo).fillna(country_score['country'])
-gtd_score = pd.merge(gtd_count, country_score, how='inner',
+gtd_democracy = pd.merge(gtd_count, country_score, how='inner',
                      left_on='country_txt', right_on='country')
 # Add HK count to China count
-gtd_score.loc[gtd_score['country_txt'] == 'China', 'attack_count'] += 5
+gtd_democracy.loc[gtd_democracy['country_txt'] == 'China', 'attack_count'] += 5
+gtd_democracy = gtd_democracy[['country', 'attack_count', 'avg_score']]
 ```
 
 ```{python}
 #| echo: false
 
 # Filter the dataset to include only rows where attack counts exceed 1000
-gtd_score = gtd_score.loc[gtd_score['attack_count'] > 1000]
+gtd_score = gtd_democracy.loc[gtd_democracy['attack_count'] > 1000]
 # Scatter Plot
 point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
     alt.X('avg_score', title='Average Democracy Score (2000-2020)'),
@@ -223,10 +226,11 @@ point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
     height=300,
     title='Number of Terrorist Attacks (2000 - 2020) vs. Democracy Performance'
 )
-# Fitted line
+
+# Fitted line (update the column name to 'log_attack_count')
 line = point.transform_regression(
     'avg_score', 'attack_count', method='linear'
-).mark_line(color='red') 
+).mark_line(color='red')
 
 combined_chart = point + line
 
