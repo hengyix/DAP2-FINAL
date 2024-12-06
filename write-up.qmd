@@ -42,7 +42,7 @@ Global instability and political polarization have been increasing, with terrori
 #| echo: false
 
 # Read in the GTD dataset
-path = '/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/'
+path = '/Users/hengyix/Documents/Github/DAP2-FINAL/data/'
 file_gtd = 'globalterrorismdb.csv'
 df_gtd = pd.read_csv(path+file_gtd)
 ```
@@ -120,7 +120,7 @@ gtd_map = pd.merge(world_shapefile, gtd_map,
 
 ```{python}
 #| echo: false
-
+# First map countering attack frequency
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 gtd_map.plot(column='attack_count', ax=ax, legend=True,
          legend_kwds={
@@ -145,7 +145,7 @@ plt.close()
 
 ```{python}
 #| echo: false
-
+# Second map countering attack casualties
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 gtd_map.plot(column='casualties', ax=ax, legend=True,
          legend_kwds={
@@ -214,6 +214,7 @@ gtd_score.loc[gtd_score['country_txt'] == 'China', 'attack_count'] += 5
 
 # Filter the dataset to include only rows where attack counts exceed 1000
 gtd_score = gtd_score.loc[gtd_score['attack_count'] > 1000]
+# Scatter Plot
 point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
     alt.X('avg_score', title='Average Democracy Score (2000-2020)'),
     alt.Y('attack_count', title='Number of Attacks')
@@ -222,6 +223,7 @@ point = alt.Chart(gtd_score).mark_circle(size=60, color='steelblue').encode(
     height=300,
     title='Number of Terrorist Attacks (2000 - 2020) vs. Democracy Performance'
 )
+# Fitted line
 line = point.transform_regression(
     'avg_score', 'attack_count', method='linear'
 ).mark_line(color='red') 
@@ -251,7 +253,7 @@ For economic development, we used GDP data from the [World Bank database](https:
 #| echo: false
 
 # Import the GDP data
-path = "/Users/wangshiying/Documents/71_Python_Programming_II/DAP2-FINAL/data/"
+path = '/Users/hengyix/Documents/Github/DAP2-FINAL/data/'
 file_name = "GDP.csv"
 df_gdp = pd.read_csv(path + file_name)
 df_gdp = df_gdp[df_gdp["Series Name"] == "GDP (current US$)"]
@@ -346,6 +348,7 @@ scatter_plot = alt.Chart(gtd_gdp).mark_circle(size=60, opacity=0.6, color="steel
     )
 )
 
+# Add the fitted line
 trend_line = scatter_plot.transform_regression("log_average_gdp", "log_attack_count").mark_line(color="red")
 
 economy_chart = scatter_plot + trend_line
@@ -376,7 +379,7 @@ gtd_clean['region'] = gtd_clean['country_txt'].apply(
               'South Asia' if x in SA else 
               'Other Regions'
 )
-
+# Group by gname and keep the top 10 according to proportion
 gtd_gnames = gtd_clean[['region', 'gname']]
 gtd_gnames = gtd_gnames.groupby(['region', 'gname']).size().reset_index(name='count')
 gtd_gnames['Percentage'] = gtd_gnames.groupby('region')['count'].transform(lambda x: x / x.sum())
@@ -384,6 +387,7 @@ gtd_gnames.sort_values(by=['region', 'Percentage'], ascending=[True, False], inp
 gtd_gnames = gtd_gnames.groupby('region').head(10)
 
 regions = ['South Asia', 'Iraq', 'Other Regions']
+# Active group plot for each of the three regions
 for region in regions:
     data_filtered = gtd_gnames[gtd_gnames['region'] == region]
     chart = alt.Chart(data_filtered).mark_bar().encode(
@@ -452,7 +456,10 @@ motive_taliban = alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
 ).configure_axis(
     labelFontSize=12,
     titleFontSize=14
+).configure_view(
+    fill='#fdfaf4'  # Set background color to light cream
 )
+
 motive_taliban.save("pictures/motive_taliban.png", scale_factor=2)
 ```
 
@@ -494,7 +501,10 @@ motive_ISIL = alt.Chart(tfidf_df).mark_bar(color="steelblue").encode(
 ).configure_axis(
     labelFontSize=12,
     titleFontSize=14
+).configure_view(
+    fill='#fdfaf4'  # Set background color to light cream
 )
+
 motive_ISIL.save("pictures/motive_ISIL.png", scale_factor=2)
 ```
 
