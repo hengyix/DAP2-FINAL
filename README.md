@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 ### Step 3: Download Additional Data
 1. Download the additional dataset from this [link](https://drive.google.com/file/d/1L_0mg8PEYIpWt4vC2UssMU8i8u1Vhnlu/view?usp=sharing).
-2. Save the file in the `data` folder and the `app-py` folder.
+2. Save the file in the `data` folder and the `shiny-app` folder.
 
 ### Step 4: Reproduce Static Plots
 1. Open and execute **`write-up.qmd`**.
@@ -39,7 +39,7 @@ pip install -r requirements.txt
 - Generate an HTML file that provides a walkthrough of the entire project, displaying both the static plots created and screenshots of the dynamic plots.
 
 ### Step 5: Run the Dynamic Plot
-1. Navigate to the `app-py` folder.
+1. Navigate to the `shiny-app` folder.
 2. Launch the shiny app:
    ```bash
    shiny run app.py
